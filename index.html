@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>VoiceBridge</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Non-Chrome banner -->
+  <div id="browser-banner" class="browser-banner hidden">
+    Best used in Chrome for full speech recognition support.
+  </div>
+
+  <!-- Header -->
+  <header class="app-header">
+    <span class="app-title">VoiceBridge</span>
+    <button class="icon-btn" id="settings-btn" aria-label="Settings">&#9881;</button>
+  </header>
+
+  <!-- Hokkien disclaimer badge -->
+  <div id="hokkien-badge" class="hokkien-badge hidden">
+    &#9888; Hokkien recognition is approximate
+  </div>
+
+  <!-- Chat log -->
+  <main class="chat-log" id="chat-log">
+    <div class="empty-state" id="empty-state">
+      Hold the button below to speak.<br />
+      Translations appear here.
+    </div>
+  </main>
+
+  <!-- Bottom bar -->
+  <div class="bottom-bar">
+    <!-- Speaker toggle -->
+    <div class="speaker-toggle">
+      <button class="lang-btn" id="btn-en" data-lang="en">EN</button>
+      <button class="lang-btn active" id="btn-zh" data-lang="zh">ZH / 台語</button>
+    </div>
+
+    <!-- Hold-to-speak -->
+    <button class="speak-btn" id="speak-btn" aria-label="Hold to speak">
+      <span class="speak-icon">&#127908;</span>
+      <span class="speak-label">Hold to Speak</span>
+    </button>
+  </div>
+
+  <!-- Settings modal -->
+  <div class="modal-overlay hidden" id="settings-overlay">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Settings">
+      <div class="modal-header">
+        <h2>Settings</h2>
+        <button class="icon-btn" id="close-settings-btn" aria-label="Close settings">&#10005;</button>
+      </div>
+
+      <label class="setting-label" for="api-key-input">OpenAI API Key</label>
+      <input
+        type="password"
+        id="api-key-input"
+        class="api-key-input"
+        placeholder="sk-..."
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <p class="setting-hint">Stored locally in your browser only. Never sent anywhere except OpenAI.</p>
+
+      <div class="setting-row">
+        <label for="hokkien-toggle">台語 Mode (Hokkien)</label>
+        <label class="toggle-switch">
+          <input type="checkbox" id="hokkien-toggle" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <button class="danger-btn" id="clear-history-btn">Clear Conversation History</button>
+
+      <button class="primary-btn" id="save-settings-btn">Save</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
