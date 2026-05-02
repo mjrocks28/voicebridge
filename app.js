@@ -423,47 +423,22 @@ async function translateText(text, sourceLang, targetLang) {
 
 /* ── Text-to-speech ─────────────────────────────────────────────────────── */
 function speakTranslation(text, targetLang) {
-  if (!window.speechSynthesis) return;
+  if (!text || !window.speechSynthesis) return;
+  const ss = window.speechSynthesis;
 
-  const doSpeak = () => {
-    const ss = window.speechSynthesis;
+  // If synthesis is paused (Chrome gets stuck after tab switches), unpause first.
+  if (ss.paused) ss.resume();
+  ss.cancel();
 
-    // Cancel any ongoing speech, then yield one frame before speaking to
-    // avoid a Chrome bug where cancel() swallows the subsequent speak() call.
-    ss.cancel();
-    requestAnimationFrame(() => {
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.rate  = 0.95;
-
-      if (targetLang === 'zh') {
-        // Try preferred zh voices in order of broad compatibility
-        const voices   = ss.getVoices();
-        const zhVoice  = voices.find(v => v.lang === 'zh-TW')
-                      || voices.find(v => v.lang === 'zh-CN')
-                      || voices.find(v => v.lang.startsWith('zh'));
-        utter.lang  = zhVoice ? zhVoice.lang : 'zh-TW';
-        if (zhVoice) utter.voice = zhVoice;
-      } else {
-        const voices   = ss.getVoices();
-        const enVoice  = voices.find(v => v.lang === 'en-US')
-                      || voices.find(v => v.lang.startsWith('en'));
-        utter.lang  = enVoice ? enVoice.lang : 'en-US';
-        if (enVoice) utter.voice = enVoice;
-      }
-
-      ss.speak(utter);
-    });
-  };
-
-  // Voices load asynchronously on first page load; wait if not ready yet.
-  if (window.speechSynthesis.getVoices().length > 0) {
-    doSpeak();
-  } else {
-    window.speechSynthesis.addEventListener('voiceschanged', doSpeak, { once: true });
-  }
+  // Chrome race condition: cancel() is async internally; a setTimeout lets the
+  // queue fully flush before we enqueue the new utterance.
+  setTimeout(() => {
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang  = targetLang === 'zh' ? 'zh-TW' : 'en-US';
+    utter.rate  = 0.92;
+    ss.speak(utter);
+  }, 150);
 }
-
-window.speechSynthesis?.addEventListener('voiceschanged', () => window.speechSynthesis.getVoices());
 
 /* ── Pending bubble (Whisper mode) ──────────────────────────────────────── */
 let pendingCounter = 0;
