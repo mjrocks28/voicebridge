@@ -15,6 +15,7 @@ let recognition   = null;
 let mediaRecorder = null;
 let audioChunks   = [];
 let ttsPrimed     = false;  // speech synthesis unlocked via user gesture
+let ttsWarnShown  = false;  // only show the mute-switch warning once
 
 /* ── DOM refs ───────────────────────────────────────────────────────────── */
 const chatLog          = document.getElementById('chat-log');
@@ -474,17 +475,33 @@ async function translateText(text, sourceLang, targetLang) {
 function speakTranslation(text, targetLang) {
   if (!text || !window.speechSynthesis) return;
   const ss = window.speechSynthesis;
-
-  // Unpause if Chrome got stuck (happens after tab switches).
   if (ss.paused) ss.resume();
 
   const utter = new SpeechSynthesisUtterance(text);
   utter.lang  = targetLang === 'zh' ? 'zh-TW' : 'en-US';
   utter.rate  = 0.92;
+
+  // If onstart never fires within 2 s the OS silently ate the utterance.
+  // Show a one-time actionable warning (most common cause on iOS: mute switch).
+  let started = false;
+  const silenceTimer = setTimeout(() => {
+    if (!started && !ttsWarnShown) {
+      ttsWarnShown = true;
+      showError(
+        '🔇 No audio played. On iPhone/iPad:\n'
+        + '• Flip the ringer switch on the side of the phone to ON\n'
+        + '• Turn volume up with the side buttons\n'
+        + 'Then tap 🔊 on any translation bubble to replay it.'
+      );
+    }
+  }, 2500);
+
+  utter.onstart = () => { started = true; clearTimeout(silenceTimer); };
   utter.onerror = e => {
-    // 'interrupted' fires when a new speak() cancels this one — not an error.
+    clearTimeout(silenceTimer);
     if (e.error !== 'interrupted') showError('⚠ Audio error: ' + e.error);
   };
+
   ss.speak(utter);
 }
 
@@ -512,6 +529,9 @@ function renderBubbleGroup(entry, isPending) {
 
   const group = document.createElement('div');
   group.className = `bubble-group ${entry.lang}`;
+  // Store which language the translation should be spoken in, so the
+  // replay button can call speakTranslation() directly from a tap gesture.
+  group.dataset.targetLang = entry.lang === 'zh' ? 'en' : 'zh';
 
   const label = document.createElement('div');
   label.className = 'bubble-label';
@@ -528,6 +548,11 @@ function renderBubbleGroup(entry, isPending) {
   trans.textContent = isPending ? 'Translating…' : (entry.translation || '');
   group.appendChild(trans);
 
+  // For history entries already resolved, add the replay button immediately.
+  if (!isPending && entry.translation) {
+    attachReplayButton(trans, entry.translation, group.dataset.targetLang);
+  }
+
   chatLog.appendChild(group);
   chatLog.scrollTop = chatLog.scrollHeight;
   return group;
@@ -535,8 +560,32 @@ function renderBubbleGroup(entry, isPending) {
 
 function updateTranslationBubble(groupEl, text) {
   const b = groupEl.querySelector('.bubble.translation');
-  if (b) { b.textContent = text; b.classList.remove('pending'); }
+  if (b) {
+    b.textContent = text;
+    b.classList.remove('pending');
+    // Only add replay button for real translations, not error messages.
+    if (!text.startsWith('⚠') && !text.startsWith('🔇')) {
+      attachReplayButton(b, text, groupEl.dataset.targetLang);
+    }
+  }
   chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+// Appends a 🔊 button to a translation bubble. The click handler runs
+// synchronously inside a user gesture, which is the only reliable way
+// to trigger speechSynthesis on iOS.
+function attachReplayButton(bubbleEl, text, targetLang) {
+  if (bubbleEl.querySelector('.replay-btn')) return; // already attached
+  const btn = document.createElement('button');
+  btn.className   = 'replay-btn';
+  btn.textContent = '🔊';
+  btn.title       = 'Tap to hear aloud';
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    ttsWarnShown = false; // allow fresh warning if this tap also fails
+    speakTranslation(text, targetLang);
+  });
+  bubbleEl.appendChild(btn);
 }
 
 /* ── History persistence ─────────────────────────────────────────────────── */

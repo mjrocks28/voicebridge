@@ -387,6 +387,20 @@ html, body {
 }
 .primary-btn:hover { opacity: 0.88; }
 
+/* ── Replay button ───────────────────────────────────────────────────────── */
+.replay-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 0 0 6px;
+  vertical-align: middle;
+  opacity: 0.65;
+  line-height: 1;
+  touch-action: manipulation;
+}
+.replay-btn:hover, .replay-btn:active { opacity: 1; }
+
 /* ── Scrollbar (desktop) ─────────────────────────────────────────────────── */
 .chat-log::-webkit-scrollbar { width: 4px; }
 .chat-log::-webkit-scrollbar-track { background: transparent; }
