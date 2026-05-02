@@ -178,8 +178,10 @@ function startWebSpeechRecognition() {
   recognition.continuous      = false;
 
   // Live-transcript bubble shown while the user speaks
-  let liveBubble = null;
-  let liveGroup  = null;
+  let liveBubble  = null;
+  let liveGroup   = null;
+  let lastInterim = '';   // fallback when Chrome omits the final onresult on stop()
+  let gotFinal    = false;
 
   recognition.onresult = e => {
     let interimText = '';
@@ -190,6 +192,8 @@ function startWebSpeechRecognition() {
       if (e.results[i].isFinal) finalText += t;
       else interimText += t;
     }
+
+    if (interimText) lastInterim = interimText;
 
     const display = finalText || interimText;
 
@@ -207,6 +211,7 @@ function startWebSpeechRecognition() {
 
     // Final result — hand off to translation pipeline
     if (finalText.trim()) {
+      gotFinal = true;
       if (liveGroup) { liveGroup.remove(); liveGroup = null; }
       handleTranscript(finalText.trim());
     }
@@ -215,27 +220,37 @@ function startWebSpeechRecognition() {
   recognition.onerror = e => {
     if (liveGroup) { liveGroup.remove(); liveGroup = null; }
 
-    const fatal = ['not-allowed', 'service-not-allowed', 'audio-capture'];
-    if (fatal.includes(e.error)) {
+    const ignored = ['no-speech', 'aborted'];
+    if (!ignored.includes(e.error)) {
       resetRecordingState();
       const msgs = {
-        'not-allowed':       'Microphone access denied. Allow mic access in your browser settings and reload.',
-        'service-not-allowed': 'Speech recognition service is not allowed. Try Chrome on desktop.',
-        'audio-capture':     'No microphone found. Please connect a microphone and try again.',
+        'not-allowed':         'Microphone access denied. Allow mic access in your browser settings and reload.',
+        'service-not-allowed': 'Speech recognition service is blocked. Try Chrome on desktop.',
+        'audio-capture':       'No microphone found. Please connect a microphone and try again.',
+        'language-not-supported': 'Language not supported by this browser\'s speech recognition.',
+        'network':             'Network error during speech recognition. Check your connection.',
       };
-      showError(msgs[e.error] || 'Speech error: ' + e.error);
+      showError(msgs[e.error] || 'Speech recognition error: ' + e.error);
     }
-    // 'no-speech' and 'aborted' are non-fatal — onend will handle restart/cleanup
   };
 
   recognition.onend = () => {
     if (liveGroup) { liveGroup.remove(); liveGroup = null; }
+
     if (isRecording) {
       // User is still holding — restart to keep listening (handles browser auto-stop)
+      lastInterim = '';
+      gotFinal    = false;
       try { recognition.start(); } catch { /* already restarting */ }
     } else {
-      // User released — clean up
       resetRecordingState();
+      // Chrome's Chinese STT often skips the final onresult when stop() is called,
+      // delivering only interim results. Fall back to the last interim if that happened.
+      if (!gotFinal && lastInterim.trim()) {
+        handleTranscript(lastInterim.trim());
+      }
+      lastInterim = '';
+      gotFinal    = false;
     }
   };
 
@@ -409,18 +424,43 @@ async function translateText(text, sourceLang, targetLang) {
 /* ── Text-to-speech ─────────────────────────────────────────────────────── */
 function speakTranslation(text, targetLang) {
   if (!window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
 
-  const utter = new SpeechSynthesisUtterance(text);
-  utter.lang  = targetLang === 'zh' ? 'zh-TW' : 'en-US';
-  utter.rate  = 0.95;
+  const doSpeak = () => {
+    const ss = window.speechSynthesis;
 
-  const voices   = window.speechSynthesis.getVoices();
-  const prefix   = targetLang === 'zh' ? 'zh' : 'en';
-  const preferred = voices.find(v => v.lang.startsWith(prefix));
-  if (preferred) utter.voice = preferred;
+    // Cancel any ongoing speech, then yield one frame before speaking to
+    // avoid a Chrome bug where cancel() swallows the subsequent speak() call.
+    ss.cancel();
+    requestAnimationFrame(() => {
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.rate  = 0.95;
 
-  window.speechSynthesis.speak(utter);
+      if (targetLang === 'zh') {
+        // Try preferred zh voices in order of broad compatibility
+        const voices   = ss.getVoices();
+        const zhVoice  = voices.find(v => v.lang === 'zh-TW')
+                      || voices.find(v => v.lang === 'zh-CN')
+                      || voices.find(v => v.lang.startsWith('zh'));
+        utter.lang  = zhVoice ? zhVoice.lang : 'zh-TW';
+        if (zhVoice) utter.voice = zhVoice;
+      } else {
+        const voices   = ss.getVoices();
+        const enVoice  = voices.find(v => v.lang === 'en-US')
+                      || voices.find(v => v.lang.startsWith('en'));
+        utter.lang  = enVoice ? enVoice.lang : 'en-US';
+        if (enVoice) utter.voice = enVoice;
+      }
+
+      ss.speak(utter);
+    });
+  };
+
+  // Voices load asynchronously on first page load; wait if not ready yet.
+  if (window.speechSynthesis.getVoices().length > 0) {
+    doSpeak();
+  } else {
+    window.speechSynthesis.addEventListener('voiceschanged', doSpeak, { once: true });
+  }
 }
 
 window.speechSynthesis?.addEventListener('voiceschanged', () => window.speechSynthesis.getVoices());
