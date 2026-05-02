@@ -399,17 +399,27 @@ async function handleTranscript(transcript) {
 
 /* ── Fetch error diagnostics ─────────────────────────────────────────────── */
 function diagnoseFetchError(err) {
-  const key    = getApiKey();
-  const hasKey = !!key;
+  const key   = getApiKey();
   const keyLen = key.length;
   const keyPfx = key.slice(0, 7);
+  const ua     = navigator.userAgent;
+  const isIOS  = /iPhone|iPad|iPod/.test(ua);
 
-  // TypeError = network-level failure (CORS, DNS, no connection, SSL)
   if (err instanceof TypeError) {
+    // On iOS (all browsers use WebKit), "Load failed" almost always means
+    // the OS or a system extension blocked the outgoing request.
+    if (isIOS) {
+      return `iOS blocked the request to api.openai.com. `
+        + `Fix one at a time and retry:\n`
+        + `1. Disable any content blocker (AdGuard, 1Blocker, etc.)\n`
+        + `2. Settings › [your name] › iCloud › Private Relay → turn OFF\n`
+        + `3. Settings › Screen Time → make sure api.openai.com is not blocked\n`
+        + `4. Toggle Airplane Mode off/on to reset the network\n`
+        + `(Key len=${keyLen}, prefix="${keyPfx}")`;
+    }
     return `Network error: "${err.message}". `
-      + `Key present: ${hasKey} (len=${keyLen}, prefix="${keyPfx}"). `
-      + `This usually means CORS was blocked, the device is offline, `
-      + `or a VPN/firewall blocked api.openai.com.`;
+      + `Key len=${keyLen}, prefix="${keyPfx}". `
+      + `Possible causes: offline, VPN/firewall, or content blocker blocking api.openai.com.`;
   }
   return `Translation failed [${err.constructor?.name}]: ${err.message}. `
     + `Key prefix: "${keyPfx}" (len=${keyLen}).`;
