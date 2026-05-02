@@ -14,6 +14,7 @@ let hokkienMode   = false;
 let recognition   = null;
 let mediaRecorder = null;
 let audioChunks   = [];
+let ttsPrimed     = false;  // speech synthesis unlocked via user gesture
 
 /* ── DOM refs ───────────────────────────────────────────────────────────── */
 const chatLog          = document.getElementById('chat-log');
@@ -138,6 +139,18 @@ function startSpeaking() {
     openSettings();
     return;
   }
+
+  // Prime the speech synthesis engine synchronously inside this user-gesture
+  // handler. Mobile browsers (iOS, Android) block speechSynthesis.speak()
+  // unless audio has been unlocked by a direct user interaction. We do it
+  // here (button press) so the async TTS call after the API round-trip works.
+  if (!ttsPrimed && window.speechSynthesis) {
+    ttsPrimed = true;
+    const primer = new SpeechSynthesisUtterance('');
+    primer.volume = 0;
+    window.speechSynthesis.speak(primer);
+  }
+
   isRecording = true;
   speakBtn.classList.add('recording');
   speakLabel.textContent = 'Listening…';
@@ -426,18 +439,17 @@ function speakTranslation(text, targetLang) {
   if (!text || !window.speechSynthesis) return;
   const ss = window.speechSynthesis;
 
-  // If synthesis is paused (Chrome gets stuck after tab switches), unpause first.
+  // Unpause if Chrome got stuck (happens after tab switches).
   if (ss.paused) ss.resume();
-  ss.cancel();
 
-  // Chrome race condition: cancel() is async internally; a setTimeout lets the
-  // queue fully flush before we enqueue the new utterance.
-  setTimeout(() => {
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang  = targetLang === 'zh' ? 'zh-TW' : 'en-US';
-    utter.rate  = 0.92;
-    ss.speak(utter);
-  }, 150);
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang  = targetLang === 'zh' ? 'zh-TW' : 'en-US';
+  utter.rate  = 0.92;
+  utter.onerror = e => {
+    // 'interrupted' fires when a new speak() cancels this one — not an error.
+    if (e.error !== 'interrupted') showError('⚠ Audio error: ' + e.error);
+  };
+  ss.speak(utter);
 }
 
 /* ── Pending bubble (Whisper mode) ──────────────────────────────────────── */
