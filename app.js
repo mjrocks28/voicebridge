@@ -389,11 +389,30 @@ async function handleTranscript(transcript) {
       saveEntryToHistory(entry);
       speakTranslation(translation, isZh ? 'en' : 'zh');
     } catch (err) {
-      updateTranslationBubble(groupEl, '⚠ Translation failed: ' + err.message);
+      const detail = diagnoseFetchError(err);
+      updateTranslationBubble(groupEl, '⚠ ' + detail);
     }
   } catch (err) {
     showError('Unexpected error: ' + err.message);
   }
+}
+
+/* ── Fetch error diagnostics ─────────────────────────────────────────────── */
+function diagnoseFetchError(err) {
+  const key    = getApiKey();
+  const hasKey = !!key;
+  const keyLen = key.length;
+  const keyPfx = key.slice(0, 7);
+
+  // TypeError = network-level failure (CORS, DNS, no connection, SSL)
+  if (err instanceof TypeError) {
+    return `Network error: "${err.message}". `
+      + `Key present: ${hasKey} (len=${keyLen}, prefix="${keyPfx}"). `
+      + `This usually means CORS was blocked, the device is offline, `
+      + `or a VPN/firewall blocked api.openai.com.`;
+  }
+  return `Translation failed [${err.constructor?.name}]: ${err.message}. `
+    + `Key prefix: "${keyPfx}" (len=${keyLen}).`;
 }
 
 /* ── OpenAI translation ─────────────────────────────────────────────────── */
@@ -406,29 +425,36 @@ async function translateText(text, sourceLang, targetLang) {
     system += ' The speaker may have used Taiwanese Hokkien (台語). Interpret accordingly before translating.';
   }
 
-  const res = await fetch(OPENAI_CHAT_URL, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${key}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user',   content: text  },
-      ],
-      temperature: 0.3,
-      max_tokens: 512,
-    }),
-  });
+  let res;
+  try {
+    res = await fetch(OPENAI_CHAT_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${key}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user',   content: text  },
+        ],
+        temperature: 0.3,
+        max_tokens: 512,
+      }),
+    });
+  } catch (networkErr) {
+    // Re-throw so diagnoseFetchError can inspect it as a TypeError
+    throw networkErr;
+  }
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    const msg  = body.error?.message || `HTTP ${res.status}`;
-    if (res.status === 401) throw new Error('Invalid API key. Check Settings.');
-    if (res.status === 429) throw new Error('Rate limited by OpenAI. Wait a moment.');
-    throw new Error(msg);
+    const msg  = body.error?.message || `HTTP ${res.status} ${res.statusText}`;
+    if (res.status === 401) throw new Error(`401 Unauthorized — invalid API key (prefix: "${key.slice(0,7)}")`);
+    if (res.status === 429) throw new Error('429 Rate limited — wait a moment and try again.');
+    if (res.status === 403) throw new Error('403 Forbidden — check API key permissions.');
+    throw new Error(`HTTP ${res.status}: ${msg}`);
   }
 
   return ((await res.json()).choices?.[0]?.message?.content || '').trim();
