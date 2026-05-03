@@ -2,6 +2,8 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
+  color-scheme: light;          /* force light mode even on dark-mode OS */
+
   /* iOS system palette — light mode */
   --bg:           #F2F2F7;
   --surface:      #FFFFFF;
@@ -29,6 +31,10 @@
   --radius:       18px;
   --header-h:     52px;
   --bottom-h:     136px;
+}
+
+html {
+  color-scheme: light;
 }
 
 html, body {
