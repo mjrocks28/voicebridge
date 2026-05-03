@@ -7,41 +7,47 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+
   <!-- Non-Chrome banner -->
   <div id="browser-banner" class="browser-banner hidden">
-    Best used in Chrome for full speech recognition support.
+    Best experienced in Chrome — some features may be limited in this browser.
   </div>
 
-  <!-- Header -->
+  <!-- Navigation bar -->
   <header class="app-header">
+    <div class="header-side"></div>
     <span class="app-title">VoiceBridge</span>
-    <button class="icon-btn" id="settings-btn" aria-label="Settings">&#9881;</button>
+    <div class="header-side header-side--right">
+      <button class="nav-btn" id="settings-btn" aria-label="Settings">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
   </header>
 
   <!-- Hokkien disclaimer badge -->
   <div id="hokkien-badge" class="hokkien-badge hidden">
-    &#9888; Hokkien recognition is approximate
+    ⚠ Hokkien recognition is approximate
   </div>
 
   <!-- Chat log -->
   <main class="chat-log" id="chat-log">
     <div class="empty-state" id="empty-state">
-      Hold the button below to speak.<br />
-      Translations appear here.
+      <div class="empty-icon">🌏</div>
+      <div class="empty-title">Ready to translate</div>
+      <div class="empty-sub">Choose a language below, then hold the button and speak.</div>
     </div>
   </main>
 
   <!-- Bottom bar -->
   <div class="bottom-bar">
-    <!-- Speaker toggle -->
     <div class="speaker-toggle">
-      <button class="lang-btn" id="btn-en" data-lang="en">EN</button>
-      <button class="lang-btn active" id="btn-zh" data-lang="zh">ZH / 台語</button>
+      <button class="lang-btn" id="btn-en" data-lang="en">English</button>
+      <button class="lang-btn active" id="btn-zh" data-lang="zh">中文 / 台語</button>
     </div>
-
-    <!-- Hold-to-speak -->
     <button class="speak-btn" id="speak-btn" aria-label="Hold to speak">
-      <span class="speak-icon">&#127908;</span>
+      <span class="speak-icon">🎙</span>
       <span class="speak-label">Hold to Speak</span>
     </button>
   </div>
@@ -49,33 +55,42 @@
   <!-- Settings modal -->
   <div class="modal-overlay hidden" id="settings-overlay">
     <div class="modal" role="dialog" aria-modal="true" aria-label="Settings">
+
       <div class="modal-header">
-        <h2>Settings</h2>
-        <button class="icon-btn" id="close-settings-btn" aria-label="Close settings">&#10005;</button>
+        <button class="modal-text-btn" id="close-settings-btn">Cancel</button>
+        <span class="modal-title">Settings</span>
+        <button class="modal-text-btn modal-text-btn--done" id="save-settings-btn">Done</button>
       </div>
 
-      <label class="setting-label" for="api-key-input">OpenAI API Key</label>
-      <input
-        type="password"
-        id="api-key-input"
-        class="api-key-input"
-        placeholder="sk-..."
-        autocomplete="off"
-        spellcheck="false"
-      />
-      <p class="setting-hint">Stored locally in your browser only. Never sent anywhere except OpenAI.</p>
+      <p class="settings-section-label">OPENAI API KEY</p>
+      <div class="settings-group">
+        <input
+          type="password"
+          id="api-key-input"
+          class="api-key-input"
+          placeholder="sk-proj-..."
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </div>
+      <p class="settings-section-hint">Stored in your browser only — never sent anywhere except OpenAI.</p>
 
-      <div class="setting-row">
-        <label for="hokkien-toggle">台語 Mode (Hokkien)</label>
-        <label class="toggle-switch">
-          <input type="checkbox" id="hokkien-toggle" />
-          <span class="toggle-slider"></span>
-        </label>
+      <p class="settings-section-label">RECOGNITION</p>
+      <div class="settings-group">
+        <div class="setting-row">
+          <span class="setting-row-label">台語 Mode (Hokkien)</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="hokkien-toggle" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
       </div>
 
-      <button class="danger-btn" id="clear-history-btn">Clear Conversation History</button>
+      <p class="settings-section-label">DATA</p>
+      <div class="settings-group">
+        <button class="danger-row-btn" id="clear-history-btn">Clear Conversation History</button>
+      </div>
 
-      <button class="primary-btn" id="save-settings-btn">Save</button>
     </div>
   </div>
 
